@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.14.0/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"8.0.0","exturl":false,"sidebar":{"position":"right","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+
+  <meta name="description" content="最近需要在用Pytorch做深度学习，为了加快训练速度，需要用到GPU运算，故在此记录一下安装过程。我的本机环境：  Ubuntu 18.04.3 LTS GeForce RTX 2080s  检查BIOS启动项 在开机启动项的Security选项中检查UEFI是否开启，如果开启的话请立马关掉它（重要）   在开机启动项的Boot选项中检查Secure Boot是否开启，如果开启的话请立马关掉它">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ubuntu上安装NVIDIA显卡驱动和CUDA和cuDNN库">
+<meta property="og:url" content="http://yoursite.com/2019/09/18/Ubuntu_CUDA_cuDNN/index.html">
+<meta property="og:site_name" content="Salamander的博客">
+<meta property="og:description" content="最近需要在用Pytorch做深度学习，为了加快训练速度，需要用到GPU运算，故在此记录一下安装过程。我的本机环境：  Ubuntu 18.04.3 LTS GeForce RTX 2080s  检查BIOS启动项 在开机启动项的Security选项中检查UEFI是否开启，如果开启的话请立马关掉它（重要）   在开机启动项的Boot选项中检查Secure Boot是否开启，如果开启的话请立马关掉它">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/images/cuda.png">
+<meta property="og:image" content="https://s2.ax1x.com/2019/09/18/n7DK2Q.png">
+<meta property="og:image" content="https://s2.ax1x.com/2019/09/18/n7y6I0.png">
+<meta property="og:image" content="https://s2.ax1x.com/2019/09/18/n76jhV.png">
+<meta property="og:image" content="https://s2.ax1x.com/2019/09/18/n7gC28.png">
+<meta property="og:image" content="https://s2.ax1x.com/2019/09/18/n7goZj.png">
+<meta property="og:image" content="https://s2.ax1x.com/2019/09/18/n72x9P.png">
+<meta property="og:image" content="https://s2.ax1x.com/2019/09/20/njMwDK.png">
+<meta property="og:image" content="https://s2.ax1x.com/2019/09/18/n7W98x.png">
+<meta property="article:published_time" content="2019-09-18T08:00:00.000Z">
+<meta property="article:modified_time" content="2019-12-23T01:55:46.169Z">
+<meta property="article:author" content="Salamander">
+<meta property="article:tag" content="NVI">
+<meta property="article:tag" content="CUDA">
+<meta property="article:tag" content="cuDNN">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/images/cuda.png">
+
+
+<link rel="canonical" href="http://yoursite.com/2019/09/18/Ubuntu_CUDA_cuDNN/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Ubuntu上安装NVIDIA显卡驱动和CUDA和cuDNN库 | Salamander的博客</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Salamander的博客</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Salamander的博客</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <section class="post-toc-wrap sidebar-panel">
+          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#检查BIOS启动项"><span class="nav-number">1.</span> <span class="nav-text">检查BIOS启动项</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#禁用-nouveau"><span class="nav-number">2.</span> <span class="nav-text">禁用 nouveau</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#安装显卡驱动"><span class="nav-number">3.</span> <span class="nav-text">安装显卡驱动</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#使用nvidia-smi命令测试"><span class="nav-number">4.</span> <span class="nav-text">使用nvidia-smi命令测试</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#安装CUDA10-1"><span class="nav-number">5.</span> <span class="nav-text">安装CUDA10.1</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#添加环境变量"><span class="nav-number">6.</span> <span class="nav-text">添加环境变量</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#判断CUDA安装成功"><span class="nav-number">7.</span> <span class="nav-text">判断CUDA安装成功</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CUDA与cuDNN的关系"><span class="nav-number">8.</span> <span class="nav-text">CUDA与cuDNN的关系</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#安装cuDNN"><span class="nav-number">9.</span> <span class="nav-text">安装cuDNN</span></a></li></ol></div>
+      </section>
+      <!--/noindex-->
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Salamander</p>
+  <div class="site-description" itemprop="description">一个简单的博客</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+          <span class="site-state-item-count">35</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">58</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/salamander-mh" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;salamander-mh" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+
+
+
+      </section>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+      
+
+      
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/09/18/Ubuntu_CUDA_cuDNN/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Salamander">
+      <meta itemprop="description" content="一个简单的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Salamander的博客">
+    </span>
+
+    
+    
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Ubuntu上安装NVIDIA显卡驱动和CUDA和cuDNN库
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2019-09-18 16:00:00" itemprop="dateCreated datePublished" datetime="2019-09-18T16:00:00+08:00">2019-09-18</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2019-12-23 09:55:46" itemprop="dateModified" datetime="2019-12-23T09:55:46+08:00">2019-12-23</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0/" itemprop="url" rel="index"><span itemprop="name">机器学习</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="/images/cuda.png" alt="upload successful"></p>
+<p>最近需要在用<a href="https://pytorch.org/" target="_blank" rel="noopener">Pytorch</a>做深度学习，为了加快训练速度，需要用到GPU运算，故在此记录一下安装过程。<br>我的本机环境：</p>
+<ul>
+<li>Ubuntu 18.04.3 LTS</li>
+<li>GeForce RTX 2080s</li>
+</ul>
+<h3 id="检查BIOS启动项"><a href="#检查BIOS启动项" class="headerlink" title="检查BIOS启动项"></a>检查BIOS启动项</h3><ul>
+<li>在开机启动项的Security选项中检查UEFI是否开启，如果开启的话请立马关掉它（重要）  </li>
+<li>在开机启动项的Boot选项中检查Secure Boot是否开启，如果开启的话请立马关掉它（重要），对于有的BIOS，只要删除<strong>Secure Boot Key</strong>就好了。</li>
+</ul>
+<a id="more"></a>
+
+<h3 id="禁用-nouveau"><a href="#禁用-nouveau" class="headerlink" title="禁用 nouveau"></a>禁用 nouveau</h3><p>运行命令</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo gedit /etc/modprobe.d/blacklist.conf</span><br></pre></td></tr></table></figure>
+
+<p>将下列代码增加到blacklist.conf文件的末尾：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">blacklist vga16fb</span><br><span class="line"></span><br><span class="line">blacklist nouveau</span><br><span class="line"></span><br><span class="line">blacklist rivafb</span><br><span class="line"></span><br><span class="line">blacklist rivatv</span><br><span class="line"></span><br><span class="line">blacklist nvidiafb</span><br></pre></td></tr></table></figure>
+
+<p>保存，然后在命令行中更新initramfs，运行：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo update-initramfs -u</span><br></pre></td></tr></table></figure>
+
+<p>之后，重启主机</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">reboot</span><br></pre></td></tr></table></figure>
+
+<p>在终端运行，运行以下命令，查看是否禁用nouveau成功（无输出则表示禁用成功）：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">lsmod | grep nouveau</span><br></pre></td></tr></table></figure>
+
+<h3 id="安装显卡驱动"><a href="#安装显卡驱动" class="headerlink" title="安装显卡驱动"></a>安装显卡驱动</h3><p>在NVIDIA官方选择对应驱动，然后<a href="https://www.geforce.com/drivers" target="_blank" rel="noopener">下载</a>：</p>
+<p><img src="https://s2.ax1x.com/2019/09/18/n7DK2Q.png" alt="图片"></p>
+<p>在安装驱动之前，应该卸载原有的NVIDIA驱动程序</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo apt-get remove --purge nvidia*</span><br></pre></td></tr></table></figure>
+
+<p>把下载的驱动放到用户目录下，我这里下载文件为<code>NVIDIA-Linux-x86_64-430.50.run</code><br>为了安装新的NVIDIA驱动程序，我们需要停止当前的显示服务器。最简单的方法是使用telinit命令更改为运行级别3。执行以下linux命令后，显示服务器将停止，因此请确保在继续之前保存所有当前工作（如果有）：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo telinit 3</span><br></pre></td></tr></table></figure>
+
+<p>之后会进入一个新的命令行会话，使用当前的用户名密码登录，然后授予驱动文件可执行权限</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">chmod a+x NVIDIA-Linux-x86_64-430.50.run</span><br></pre></td></tr></table></figure>
+
+<p>然后执行安装：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo ./NVIDIA-Linux-x86_64-430.50.run --no-opengl-files</span><br></pre></td></tr></table></figure>
+
+<p>注意，<strong>–no-opengl-files</strong>参数必须加否则会循环登录，也就是loop login<br>参数介绍：</p>
+<ul>
+<li>–no-opengl-files 只安装驱动文件，不安装OpenGL文件。这个参数最重要</li>
+<li>–no-x-check 安装驱动时不检查X服务</li>
+<li>–no-nouveau-check 安装驱动时不检查nouveau</li>
+</ul>
+<p>后面两个参数可不加。  </p>
+<p>安装驱动中注意，<strong>pre-install script failed</strong>这个提示没什么关系，之后的warning提示<strong>unable to find a suitable destination to install 32-bit compatibility libraries</strong>也没关系，都选ok，在询问是否修改x-configuration，请选择默认的<strong>no</strong>，选择yes会导致重启后无法进入系统。</p>
+<h3 id="使用nvidia-smi命令测试"><a href="#使用nvidia-smi命令测试" class="headerlink" title="使用nvidia-smi命令测试"></a>使用nvidia-smi命令测试</h3><p>英伟达系统管理接口（NVIDIA System Management Interface, 简称 nvidia-smi）是基于NVIDIA Management Library (NVML) 的命令行管理组件,旨在(intened to )帮助管理和监控NVIDIA GPU设备。</p>
+<p>驱动安装完成后，启动电脑，之后就能用nvidia-smi命令判断驱动是否安装成功</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">nvidia-smi</span><br></pre></td></tr></table></figure>
+
+<p>执行这条命令将会打印出当前系统安装的NVIDIA驱动信息，如下：</p>
+<p><img src="https://s2.ax1x.com/2019/09/18/n7y6I0.png" alt="image"></p>
+<p>若出现上图中的结果则说明英伟达驱动安装成功。</p>
+<h3 id="安装CUDA10-1"><a href="#安装CUDA10-1" class="headerlink" title="安装CUDA10.1"></a>安装CUDA10.1</h3><p>CUDA是什么？  </p>
+<blockquote>
+<blockquote>
+<p>CUDA，Compute Unified Device Architecture的简称，是由NVIDIA公司创立的基于他们公司生产的图形处理器GPUs（Graphics Processing Units,可以通俗的理解为显卡）的一个并行计算平台和编程模型。<br>        通过CUDA，GPUs可以很方便地被用来进行通用计算（有点像在CPU中进行的数值计算等等）。在没有CUDA之前，GPUs一般只用来进行图形渲染（如通过OpenGL，DirectX）。</p>
+</blockquote>
+</blockquote>
+<p>下载<a href="https://developer.nvidia.com/cuda-downloads" target="_blank" rel="noopener">地址</a>，选择对应版本的cuda安装包，我这里选择的是<code>runfile</code>类型的，不要选择使用<code>deb</code>版本，<strong>安装CUDA时一定使用runfile文件，这样可以进行选择不再安装驱动</strong>。</p>
+<p><img src="https://s2.ax1x.com/2019/09/18/n76jhV.png" alt="img"></p>
+<p>在安装界面，<strong>注意选择不安装显卡驱动</strong>（按enter键取消选择）</p>
+<p><img src="https://s2.ax1x.com/2019/09/18/n7gC28.png" alt="img"></p>
+<p>。之后，打开/usr/local文件夹，我们会发现多了cuda和cuda10.1这两个文件夹，如下所示：</p>
+<p><img src="https://s2.ax1x.com/2019/09/18/n7goZj.png" alt="img"></p>
+<h3 id="添加环境变量"><a href="#添加环境变量" class="headerlink" title="添加环境变量"></a>添加环境变量</h3><p>运行<code>sudo vim /etc/profile</code>，末尾加上：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">export CUDA_HOME=/usr/local/cuda </span><br><span class="line">export PATH=$PATH:$CUDA_HOME/bin </span><br><span class="line">export LD_LIBRARY_PATH=/usr/local/cuda-10.1/lib64$&#123;LD_LIBRARY_PATH:+:$&#123;LD_LIBRARY_PATH&#125;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>之后运行<code>source /etc/profile</code>使变量起效。</p>
+<h3 id="判断CUDA安装成功"><a href="#判断CUDA安装成功" class="headerlink" title="判断CUDA安装成功"></a>判断CUDA安装成功</h3><p>运行一下代码</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">cd /usr/local/cuda/samples/1_Utilities/deviceQuery </span><br><span class="line">sudo make</span><br><span class="line">./deviceQuery</span><br></pre></td></tr></table></figure>
+
+<p>如果输出如下类似信息，说明CUDA安装成功：</p>
+<p><img src="https://s2.ax1x.com/2019/09/18/n72x9P.png" alt="img"></p>
+<p>在CUDA安装之后，我们其实已经可以用PyTorch判断是否支持GPU了，进入python控制台：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">import torch</span><br><span class="line">print(torch.cuda.is_available())</span><br></pre></td></tr></table></figure>
+
+<h3 id="CUDA与cuDNN的关系"><a href="#CUDA与cuDNN的关系" class="headerlink" title="CUDA与cuDNN的关系"></a>CUDA与cuDNN的关系</h3><p>cuDNN是GPU加速计算深层神经网络的库。把CUDA看作是一个工作台，上面配有很多工具，如锤子、螺丝刀等。cuDNN是基于CUDA的深度学习GPU加速库，有了它才能在GPU上完成深度学习的计算。它就相当于工作的工具，比如它就是个扳手。但是CUDA这个工作台买来的时候，并没有送扳手。想要在CUDA上运行深度神经网络，就要安装cuDNN，就像你想要拧个螺帽就要把扳手买回来。这样才能使GPU进行深度神经网络的工作，工作速度相较CPU快很多。</p>
+<h3 id="安装cuDNN"><a href="#安装cuDNN" class="headerlink" title="安装cuDNN"></a>安装cuDNN</h3><p><a href="https://docs.nvidia.com/deeplearning/sdk/cudnn-install/index.html#install-linux" target="_blank" rel="noopener">官方安装cuDNN指南</a><br>从官方安装指南可以看出，只要把<strong>cuDNN文件复制到CUDA的对应文件夹</strong>里就可以，即是所谓插入式设计，把cuDNN数据库添加CUDA里，cuDNN是CUDA的扩展计算库，不会对CUDA造成其他影响。<br><img src="https://s2.ax1x.com/2019/09/20/njMwDK.png" alt="官方安装cuDNN指南"></p>
+<p>首先去<a href="https://developer.nvidia.com/rdp/cudnn-archive" target="_blank" rel="noopener">官网</a>下载cuDNN，需要注册一个账号才能下载。注意要选择对应版本的<strong>cuDNN Library for Linux</strong>（与CUDA 10.1对应）： </p>
+<p><img src="https://s2.ax1x.com/2019/09/18/n7W98x.png" alt="img"><br>下载后进行解压：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tar -zxvf cudnn-10.1-linux-x64-v7.6.2.24.tgz</span><br></pre></td></tr></table></figure>
+
+<p>进入cudnn 10.1解压之后的include目录，在命令行进行如下操作：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cd cuda/include</span><br><span class="line">sudo cp cudnn.h /usr/local/cuda/include  #复制头文件</span><br></pre></td></tr></table></figure>
+
+<p>再将进入lib64目录下的动态文件进行复制和链接：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">cd ..</span><br><span class="line">cd lib64</span><br><span class="line">sudo cp libcudnn* /usr/local/cuda/lib64/    #复制动态链接库</span><br><span class="line">cd /usr/local/cuda/lib64/</span><br><span class="line">sudo chmod +r libcudnn.so.7.6.2</span><br><span class="line">sudo ln -sf libcudnn.so.7.6.2 libcudnn.so.7</span><br><span class="line">sudo ln -sf libcudnn.so.7 libcudnn.so</span><br><span class="line">sudo chmod a+r /usr/local/cuda/include/cudnn.h /usr/local/cuda/lib64/libcudnn*</span><br><span class="line">sudo ldconfig</span><br></pre></td></tr></table></figure>
+
+<p>参考文章：</p>
+<ul>
+<li><a href="https://blog.csdn.net/oTengYue/article/details/79506758" target="_blank" rel="noopener">https://blog.csdn.net/oTengYue/article/details/79506758</a></li>
+<li><a href="https://shomy.top/2016/12/29/gpu-tensorflow-install" target="_blank" rel="noopener">https://shomy.top/2016/12/29/gpu-tensorflow-install</a></li>
+<li><a href="https://www.jianshu.com/p/622f47f94784" target="_blank" rel="noopener">简书——CUDA与cuDNN</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>您的支持将鼓励我继续创作！</div>
+  <button onclick="document.querySelector('.post-reward').classList.toggle('active');">
+    赞赏
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/images/wechatpay.jpg" alt="Salamander 微信">
+        <span>微信</span>
+      </div>
+      <div>
+        <img src="/images/alipay.jpg" alt="Salamander 支付宝">
+        <span>支付宝</span>
+      </div>
+
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/NVI/" rel="tag"># NVI</a>
+              <a href="/tags/CUDA/" rel="tag"># CUDA</a>
+              <a href="/tags/cuDNN/" rel="tag"># cuDNN</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2019/08/30/arduino_DTH11/" rel="prev" title="Arduino使用DHT11测量温湿度">
+                  <i class="fa fa-chevron-left"></i> Arduino使用DHT11测量温湿度
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2019/10/27/Spring-Boot%E9%9B%86%E6%88%90MyBatis%E6%93%8D%E4%BD%9CMySQL/" rel="next" title="Spring Boot集成MyBatis操作MySQL">
+                  Spring Boot集成MyBatis操作MySQL <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+  
+  
+  
+
+
+
+      
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      
+
+      
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Salamander</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.0/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

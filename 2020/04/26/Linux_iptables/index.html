@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.14.0/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"8.0.0","exturl":false,"sidebar":{"position":"right","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+
+  <meta name="description" content="简介管理网络流量是系统管理员必需处理的最棘手工作之一，我们必需规定连接系统的用户满足防火墙的传入和传出要求，以最大限度保证系统免受攻击。iptables正是这样的工具。 其实不是真正的防火墙，我们可以把它理解成一个客户端代理，用户通过iptables这个代理，将用户的安全设定执行到对应的”安全框架”中，这个”安全框架”才是真正的防火墙，这个框架的名字叫netfilter。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux之iptables">
+<meta property="og:url" content="http://yoursite.com/2020/04/26/Linux_iptables/index.html">
+<meta property="og:site_name" content="Salamander的博客">
+<meta property="og:description" content="简介管理网络流量是系统管理员必需处理的最棘手工作之一，我们必需规定连接系统的用户满足防火墙的传入和传出要求，以最大限度保证系统免受攻击。iptables正是这样的工具。 其实不是真正的防火墙，我们可以把它理解成一个客户端代理，用户通过iptables这个代理，将用户的安全设定执行到对应的”安全框架”中，这个”安全框架”才是真正的防火墙，这个框架的名字叫netfilter。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/images/iptables_process.png">
+<meta property="article:published_time" content="2020-04-26T05:00:00.000Z">
+<meta property="article:modified_time" content="2020-04-29T06:45:37.570Z">
+<meta property="article:author" content="Salamander">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="iptables">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/images/iptables_process.png">
+
+
+<link rel="canonical" href="http://yoursite.com/2020/04/26/Linux_iptables/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux之iptables | Salamander的博客</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Salamander的博客</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Salamander的博客</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <section class="post-toc-wrap sidebar-panel">
+          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#简介"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#流程"><span class="nav-number">2.</span> <span class="nav-text">流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用"><span class="nav-number">3.</span> <span class="nav-text">使用</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#启动、停止和重启iptables"><span class="nav-number">3.1.</span> <span class="nav-text">启动、停止和重启iptables</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#查看规则"><span class="nav-number">3.2.</span> <span class="nav-text">查看规则</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#添加规则"><span class="nav-number">3.3.</span> <span class="nav-text">添加规则</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#DNAT和SNAT"><span class="nav-number">3.4.</span> <span class="nav-text">DNAT和SNAT</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#删除iptables规则"><span class="nav-number">3.5.</span> <span class="nav-text">删除iptables规则</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#保存和恢复"><span class="nav-number">3.6.</span> <span class="nav-text">保存和恢复</span></a></li></ol></li></ol></div>
+      </section>
+      <!--/noindex-->
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Salamander</p>
+  <div class="site-description" itemprop="description">一个简单的博客</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+          <span class="site-state-item-count">35</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">58</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/salamander-mh" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;salamander-mh" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+
+
+
+      </section>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+      
+
+      
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/04/26/Linux_iptables/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Salamander">
+      <meta itemprop="description" content="一个简单的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Salamander的博客">
+    </span>
+
+    
+    
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux之iptables
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2020-04-26 13:00:00" itemprop="dateCreated datePublished" datetime="2020-04-26T13:00:00+08:00">2020-04-26</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2020-04-29 14:45:37" itemprop="dateModified" datetime="2020-04-29T14:45:37+08:00">2020-04-29</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/Linux/" itemprop="url" rel="index"><span itemprop="name">Linux</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>管理网络流量是系统管理员必需处理的最棘手工作之一，我们必需规定连接系统的用户满足防火墙的传入和传出要求，以最大限度保证系统免受攻击。<code>iptables</code>正是这样的工具。</p>
+<p>其实不是真正的防火墙，我们可以把它理解成一个客户端代理，用户通过iptables这个代理，将用户的安全设定执行到对应的”安全框架”中，这个”安全框架”才是真正的防火墙，这个框架的名字叫<strong>netfilter</strong>。</p>
+<a id="more"></a>
+
+<h2 id="流程"><a href="#流程" class="headerlink" title="流程"></a>流程</h2><p>iptables有5个链:PREROUTING,INPUT,FORWARD,OUTPUT,POSTROUTING,4个表:filter,nat,mangle,raw。（4表5链）<br>4个表的优先级由高到低的顺序为:raw–&gt;mangle–&gt;nat–&gt;filter  </p>
+<p><img src="/images/iptables_process.png" alt="upload successful"></p>
+<ul>
+<li>filter：一般的过滤功能</li>
+<li>nat:用于nat功能（端口映射，地址映射等）</li>
+<li>mangle:用于对特定数据包的修改</li>
+<li>raw:优先级最高，设置raw时一般是为了不再让iptables做数据包的链接跟踪处理，提高性能</li>
+</ul>
+<p>图片中，<strong>PREROUTING</strong>会有个分叉，系统是根据IP数据包中的<code>destination ip address</code>中的IP地址对数据包进行分发。<br>如果destination ip adress是<strong>本机地址</strong>，数据将会被转交给INPUT链。如果不是本机地址，则交给FORWARD链检测。</p>
+<h2 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h2><h3 id="启动、停止和重启iptables"><a href="#启动、停止和重启iptables" class="headerlink" title="启动、停止和重启iptables"></a>启动、停止和重启iptables</h3><p>虽然 iptables 并不是一项服务，但在 Linux 中还是可以像服务一样对其状态进行管理。</p>
+<p>基于SystemD的系统</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">systemctl start iptables</span><br><span class="line">systemctl stop iptables</span><br><span class="line">systemctl restart iptables</span><br></pre></td></tr></table></figure>
+
+<h3 id="查看规则"><a href="#查看规则" class="headerlink" title="查看规则"></a>查看规则</h3><p>查看iptables防火墙策略</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo iptables -vL</span><br></pre></td></tr></table></figure>
+
+<p>或者带上序号</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo iptables -vL  --line-number //--line-number可以显示规则序号，在删除的时候比较方便</span><br></pre></td></tr></table></figure>
+
+<p>以上命令是查看默认的 FILTER 表，如果你只希望查看特定的表，可以在 -t 参数后跟上要单独查看的表名。例如只查看 NAT 表中的规则，可以使用如下命令：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo iptables -vL -t nat</span><br></pre></td></tr></table></figure>
+
+<h3 id="添加规则"><a href="#添加规则" class="headerlink" title="添加规则"></a>添加规则</h3><p>命令格式为：”iptables [-t 表名] 选项 [链名] [条件] [-j 控制动作]”。<br>此处列出一些常用的动作：  </p>
+<ul>
+<li>ACCEPT：允许数据包通过。</li>
+<li>DROP：直接丢弃数据包，不给任何回应信息，这时候客户端会感觉自己的请求泥牛入海了，过了超时时间才会有反应。</li>
+<li>REJECT：拒绝数据包通过，必要时会给数据发送端一个响应的信息，客户端刚请求就会收到拒绝的信息。</li>
+<li>SNAT：源地址转换，解决内网用户用同一个公网地址上网的问题。</li>
+<li>MASQUERADE：是SNAT的一种特殊形式，适用于动态的、临时会变的ip上。</li>
+<li>DNAT：目标地址转换。</li>
+<li>REDIRECT：在本机做端口映射。</li>
+<li>LOG：在/var/log/messages文件中记录日志信息，然后将数据包传递给下一条规则，也就是说除了记录以外不对数据包做任何其他操作，仍然让下一条规则去匹配。</li>
+</ul>
+<p>拒绝转发来自<code>192.168.1.10</code>主机的数据，允许转发来自<code>192.168.0.0/24</code>网段的数据</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">iptables -A FORWARD -s 192.168.1.11 -j REJECT </span><br><span class="line">iptables -A FORWARD -s 192.168.0.0/24 -j ACCEPT</span><br><span class="line">说明：注意要把拒绝的放在前面不然就不起作用了啊。</span><br></pre></td></tr></table></figure>
+
+<p>允许本机开放从TCP端口20-1024提供的应用服务。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">iptables -A INPUT -p tcp --dport 20:1024 -j ACCEPT </span><br><span class="line">iptables -A OUTPUT -p tcp --sport 20:1024 -j ACCEPT</span><br></pre></td></tr></table></figure>
+
+<p>允许转发来自192.168.0.0/24局域网段的DNS解析请求数据包。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">iptables -A FORWARD -s 192.168.0.0/24 -p udp --dport 53 -j ACCEPT </span><br><span class="line">iptables -A FORWARD -d 192.168.0.0/24 -p udp --sport 53 -j ACCEPT</span><br></pre></td></tr></table></figure>
+
+<h3 id="DNAT和SNAT"><a href="#DNAT和SNAT" class="headerlink" title="DNAT和SNAT"></a>DNAT和SNAT</h3><p>我们要做的DNAT要在进入这个菱形转发区域之前，也就是在<strong>PREROUTING链</strong>中做，例如要把访问<code>202.103.96.112</code>的访问转发到<code>192.168.0.112</code>上：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">iptables -t nat -A PREROUTING -d 202.103.96.112 -j DNAT --to-destination 192.168.0.112</span><br></pre></td></tr></table></figure>
+
+<p>而SNAT自然是要在数据包流出这台机器之前的最后一个链也就是<strong>POSTROUTING链</strong>来进行操作</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">iptables -t nat -A POSTROUTING -s 192.168.0.0/24 -j SNAT --to-source 58.20.51.66</span><br></pre></td></tr></table></figure>
+
+<p>假如当前系统用的是ADSL/3G/4G动态拨号方式，那么每次拨号，出口IP都会改变，SNAT就会有局限性。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">iptables -t nat -A POSTROUTING -s 192.168.0.0/24 -o eth0 -j MASQUERADE</span><br></pre></td></tr></table></figure>
+
+<p>重点在那个『 MASQUERADE 』！这个设定值就是『IP伪装成为封包出去(-o)的那块装置上的IP』！</p>
+<p>不管现在eth0的出口获得了怎样的动态ip，MASQUERADE会自动读取eth0现在的ip地址然后做SNAT出去，这样就实现了很好的动态SNAT地址转换。</p>
+<h3 id="删除iptables规则"><a href="#删除iptables规则" class="headerlink" title="删除iptables规则"></a>删除iptables规则</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">iptables -D INPUT 3  //删除input的第3条规则  </span><br><span class="line">  </span><br><span class="line">iptables -t nat -D POSTROUTING 1  //删除nat表中postrouting的第一条规则  </span><br><span class="line">  </span><br><span class="line">iptables -F INPUT   //清空 filter表INPUT所有规则  </span><br><span class="line"></span><br><span class="line">iptables -F    //清空所有规则  </span><br><span class="line"></span><br><span class="line">iptables -t nat -F POSTROUTING   //清空nat表POSTROUTING所有规则</span><br></pre></td></tr></table></figure>
+
+<h3 id="保存和恢复"><a href="#保存和恢复" class="headerlink" title="保存和恢复"></a>保存和恢复</h3><p>iptables 命令修改后规则只存在于内存中，但是我们保存当前规则用来恢复</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">iptables-save &gt; /etc/sysconfig/iptables.20180606</span><br><span class="line"></span><br><span class="line">iptables-restore &lt; /etc/sysconfig/iptables.20180606</span><br></pre></td></tr></table></figure>
+
+<p>参考：</p>
+<ul>
+<li><a href="https://blog.51cto.com/linuxcgi/1965296" target="_blank" rel="noopener">iptables之FORWARD转发链</a></li>
+<li><a href="https://www.cnblogs.com/liuhongru/p/11422460.html" target="_blank" rel="noopener">iptables中DNAT、SNAT和MASQUERADE</a></li>
+<li><a href="https://www.jianshu.com/p/196e57a99a9a" target="_blank" rel="noopener">iptables介绍</a></li>
+<li><a href="https://www.cnblogs.com/whych/p/9147900.html" target="_blank" rel="noopener">Linux iptables用法与NAT</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>您的支持将鼓励我继续创作！</div>
+  <button onclick="document.querySelector('.post-reward').classList.toggle('active');">
+    赞赏
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/images/wechatpay.jpg" alt="Salamander 微信">
+        <span>微信</span>
+      </div>
+      <div>
+        <img src="/images/alipay.jpg" alt="Salamander 支付宝">
+        <span>支付宝</span>
+      </div>
+
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/iptables/" rel="tag"># iptables</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/04/21/Elasticsearch_to_know/" rel="prev" title="Elasticsearch简单使用">
+                  <i class="fa fa-chevron-left"></i> Elasticsearch简单使用
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/04/28/step_to_step_Docker%E4%B9%8BDocker_network_underlying/" rel="next" title="一步步自己做个Docker之Docker网络原理">
+                  一步步自己做个Docker之Docker网络原理 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+  
+  
+  
+
+
+
+      
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      
+
+      
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Salamander</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.0/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

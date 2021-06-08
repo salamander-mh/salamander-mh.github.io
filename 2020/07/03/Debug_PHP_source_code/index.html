@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.14.0/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"8.0.0","exturl":false,"sidebar":{"position":"right","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"i18n":{"placeholder":"搜索...","empty":"没有找到任何搜索结果：${query}","hits_time":"找到 ${hits} 个搜索结果（用时 ${time} 毫秒）","hits":"找到 ${hits} 个搜索结果"},"path":"search.xml","localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false}};
+  </script>
+
+  <meta name="description" content="缘由有时候，我们想看看一个变量底层对应底层的数据结构或者PHP脚本是如何执行的，gdb就是这样一个好工具，之前有篇文章写过如何简单使用gdb。   本文环境：  PHP版本：PHP 7.1.16 (cli) (built: Apr  8 2020 11:56:59) ( ZTS ) OS：Ubuntu 18.04.4 LTS gdb: GNU gdb (Ubuntu 8.1-0ubuntu3.2">
+<meta property="og:type" content="article">
+<meta property="og:title" content="调试PHP源码">
+<meta property="og:url" content="http://yoursite.com/2020/07/03/Debug_PHP_source_code/index.html">
+<meta property="og:site_name" content="Salamander的博客">
+<meta property="og:description" content="缘由有时候，我们想看看一个变量底层对应底层的数据结构或者PHP脚本是如何执行的，gdb就是这样一个好工具，之前有篇文章写过如何简单使用gdb。   本文环境：  PHP版本：PHP 7.1.16 (cli) (built: Apr  8 2020 11:56:59) ( ZTS ) OS：Ubuntu 18.04.4 LTS gdb: GNU gdb (Ubuntu 8.1-0ubuntu3.2">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://s1.ax1x.com/2020/07/05/U91xmt.png">
+<meta property="article:published_time" content="2020-07-03T12:00:00.000Z">
+<meta property="article:modified_time" content="2020-08-02T02:43:00.272Z">
+<meta property="article:author" content="Salamander">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="PHP">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://s1.ax1x.com/2020/07/05/U91xmt.png">
+
+
+<link rel="canonical" href="http://yoursite.com/2020/07/03/Debug_PHP_source_code/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>调试PHP源码 | Salamander的博客</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+        <span class="toggle-line"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Salamander的博客</h1>
+      <i class="logo-line"></i>
+    </a>
+      <p class="site-subtitle" itemprop="description">Salamander的博客</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  <ul class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off" maxlength="80"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div class="search-result-container no-result">
+  <div class="search-result-icon">
+    <i class="fa fa-spinner fa-pulse fa-5x"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <section class="post-toc-wrap sidebar-panel">
+          <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#缘由"><span class="nav-number">1.</span> <span class="nav-text">缘由</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#编译"><span class="nav-number">2.</span> <span class="nav-text">编译</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#调试PHP"><span class="nav-number">3.</span> <span class="nav-text">调试PHP</span></a></li></ol></div>
+      </section>
+      <!--/noindex-->
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-author animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Salamander</p>
+  <div class="site-description" itemprop="description">一个简单的博客</div>
+</div>
+<div class="site-state-wrap animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+          <span class="site-state-item-count">35</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">26</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">58</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author animated">
+      <span class="links-of-author-item">
+        <a href="https://github.com/salamander-mh" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;salamander-mh" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+
+
+
+      </section>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+      
+
+      
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/07/03/Debug_PHP_source_code/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Salamander">
+      <meta itemprop="description" content="一个简单的博客">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Salamander的博客">
+    </span>
+
+    
+    
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          调试PHP源码
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">发表于</span>
+
+      <time title="创建时间：2020-07-03 20:00:00" itemprop="dateCreated datePublished" datetime="2020-07-03T20:00:00+08:00">2020-07-03</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">更新于</span>
+        <time title="修改时间：2020-08-02 10:43:00" itemprop="dateModified" datetime="2020-08-02T10:43:00+08:00">2020-08-02</time>
+      </span>
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-folder"></i>
+      </span>
+      <span class="post-meta-item-text">分类于</span>
+        <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+          <a href="/categories/PHP/" itemprop="url" rel="index"><span itemprop="name">PHP</span></a>
+        </span>
+    </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p><img src="https://s1.ax1x.com/2020/07/05/U91xmt.png" alt></p>
+<h2 id="缘由"><a href="#缘由" class="headerlink" title="缘由"></a>缘由</h2><p>有时候，我们想看看一个变量底层对应底层的数据结构或者PHP脚本是如何执行的，gdb就是这样一个好工具，之前有篇<a href="/2020/07/02/gdb_use/">文章写过</a>如何简单使用gdb。  </p>
+<p>本文环境：</p>
+<ul>
+<li>PHP版本：PHP 7.1.16 (cli) (built: Apr  8 2020 11:56:59) ( ZTS )</li>
+<li>OS：Ubuntu 18.04.4 LTS</li>
+<li>gdb: GNU gdb (Ubuntu 8.1-0ubuntu3.2) 8.1.0.20180409-git</li>
+</ul>
+<a id="more"></a>
+
+
+<h2 id="编译"><a href="#编译" class="headerlink" title="编译"></a>编译</h2><p>你可以从<a href="https://www.php.net/downloads" target="_blank" rel="noopener">PHP官网下载PHP源码的压缩包</a>，者是从git.php.net（或者是github的镜像）的git库clone最新的代码库，然后切换到对应的PHP版本的分支，本文使用的是PHP7.1，你可以使用下面的命令完成这些工作：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">git clone http://git.php.net/repository/php-src.git</span><br><span class="line">cd php-src</span><br><span class="line">git checkout PHP-7.1</span><br></pre></td></tr></table></figure>
+
+<p>如果你是从git库中clone的代码，那么你先要运行下buildconf命令：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">~/php-src&gt; ./buildconf</span><br></pre></td></tr></table></figure>
+
+<p>这个命令会生成configure脚本，<strong>从官网下载的源码包中会直接包含这个脚本</strong>，如果你执行<code>buildconf</code>出错，那么很可能是因为你的系统中没有<code>autoconf</code>这个工具，你可以使用包安装工具进行安装。<br>如果你已经成功生成了configure脚本文件（或者是使用已包含这个脚本文件的源码包），那就可以开始编译了。为了调式PHP源码，我们的编译会disable所有的扩展（除了一些必须包含的外，这些PHP的编译脚本会自行处理），我们使用下面的命令来完成编译安装的工作，假设安装的路径为$HOME/myphp：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">~/php-src&gt; ./configure --disable-all --enable-debug --prefix=$HOME/myphp</span><br><span class="line">~/php-src&gt; make -jN</span><br><span class="line">~/php-src&gt; make install</span><br></pre></td></tr></table></figure>
+
+<p>注意这里的prefix的参数必须为绝对路径，所以你不能写成~/myphp，另外我们这次编译只是为了调式，所以建议一定要设置prefix参数，要不然PHP会被安装到默认路径中，大多数时候是/usr/local/php中，这可能会造成一些没必要的污染。另外我们使用了两个选项，一个是–disable-all，这个表示禁止安装所有扩展（除了一个必须安装的），另外一个就是–enable-debug，这个选项表示以debug模式编译PHP源码，<strong>相当于gcc的-g选项</strong>，它会把调试信息编译进最终的二进制程序中。  </p>
+<p>上面的命令make -jN，N表示你的CPU数量（或者是CPU核心的数量），设置了这个参数后就可以使用多个CPU进行并行编译，这可以提高编译效率。</p>
+<h2 id="调试PHP"><a href="#调试PHP" class="headerlink" title="调试PHP"></a>调试PHP</h2><p>我们调试一段简单的PHP代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&lt;?php</span><br><span class="line">$a = 10;</span><br><span class="line">$b = 42;</span><br><span class="line"></span><br><span class="line">echo $b;</span><br></pre></td></tr></table></figure>
+
+<p>我们想看下<code>$a</code>对应的底层变量结构，那我们应该在哪个函数上叫断点呢？通过查阅资料（如《PHP7内核分析》）我们发现，ZendVM的执行器就是一个white循环，在这个循环中依次调用<code>opline</code>指令的handler，然后根据handler的返回决定下一步的动作。执行调度器为<strong>zend_execute_ex</strong>，这是函数指针，默认为<code>execute_ex</code>，我们看下这个函数的代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">//删除了预处理语句</span><br><span class="line">ZEND_API void execute_ex(zend_execute_data *ex)</span><br><span class="line">&#123;</span><br><span class="line">    DCL_OPLINE</span><br><span class="line"></span><br><span class="line">    const zend_op *orig_opline = opline;</span><br><span class="line">    zend_execute_data *orig_execute_data = execute_data; /* execute_data是一个全局变量 */</span><br><span class="line">    execute_data = ex; </span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    LOAD_OPLINE();</span><br><span class="line"></span><br><span class="line">    while (1) &#123;</span><br><span class="line">        ((opcode_handler_t)OPLINE-&gt;handler)(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU); //执行OPCode对应的C函数，OPLINE是一个全局变量</span><br><span class="line">        if (UNEXPECTED(!OPLINE)) &#123; //当前OPArray执行完</span><br><span class="line">            execute_data = orig_execute_data;</span><br><span class="line">            opline = orig_opline;</span><br><span class="line">            return;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    zend_error_noreturn(E_CORE_ERROR, &quot;Arrived at end of main loop which shouldn&apos;t happen&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>所以我们可以在给<code>execute_ex</code>函数打断点。  </p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">gdb ~/myphp/bin/php</span><br><span class="line"></span><br><span class="line">(gdb) r index.php</span><br><span class="line">Starting program: /home/salamander/myphp/bin/php index.php</span><br><span class="line"></span><br><span class="line">Breakpoint 1, execute_ex (ex=0x7ffff7014030) at /home/salamander/php-7.1.16/Zend/zend_vm_execute.h:411</span><br><span class="line">411             const zend_op *orig_opline = opline;</span><br><span class="line">(gdb) n</span><br><span class="line">414             zend_execute_data *orig_execute_data = execute_data;</span><br><span class="line">(gdb) n</span><br><span class="line">415             execute_data = ex;</span><br><span class="line">(gdb) n</span><br><span class="line">421             LOAD_OPLINE();</span><br><span class="line">(gdb) n</span><br><span class="line">422             ZEND_VM_LOOP_INTERRUPT_CHECK();</span><br><span class="line">(gdb) n</span><br><span class="line">429                     ((opcode_handler_t)OPLINE-&gt;handler)(ZEND_OPCODE_HANDLER_ARGS_PASSTHRU);</span><br></pre></td></tr></table></figure>
+
+<p>现在就要调用<code>opline</code>指令的handler，我们应该键入<code>s</code>，跳到对应函数内部去： </p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">(gdb) s</span><br><span class="line">ZEND_ASSIGN_SPEC_CV_CONST_RETVAL_UNUSED_HANDLER () at /home/salamander/php-7.1.16/Zend/zend_vm_execute.h:39506</span><br><span class="line">39506           SAVE_OPLINE();</span><br><span class="line">(gdb) n</span><br><span class="line">39507           value = EX_CONSTANT(opline-&gt;op2);</span><br><span class="line">(gdb) n</span><br><span class="line">39508           variable_ptr = _get_zval_ptr_cv_undef_BP_VAR_W(execute_data, opline-&gt;op1.var);</span><br><span class="line">(gdb) n</span><br><span class="line">39516                   value = zend_assign_to_variable(variable_ptr, value, IS_CONST);</span><br><span class="line">(gdb) p value</span><br><span class="line">$1 = (zval *) 0x7ffff707b460</span><br><span class="line">(gdb) p *$1</span><br><span class="line">$3 = &#123;value = &#123;lval = 10, dval = 4.9406564584124654e-323, counted = 0xa, str = 0xa, arr = 0xa, obj = 0xa, res = 0xa, ref = 0xa, ast = 0xa, zv = 0xa, </span><br><span class="line">    ptr = 0xa, ce = 0xa, func = 0xa, ww = &#123;w1 = 10, w2 = 0&#125;&#125;, u1 = &#123;v = &#123;type = 4 &apos;\004&apos;, type_flags = 0 &apos;\000&apos;, const_flags = 0 &apos;\000&apos;, </span><br><span class="line">      reserved = 0 &apos;\000&apos;&#125;, type_info = 4&#125;, u2 = &#123;next = 4294967295, cache_slot = 4294967295, lineno = 4294967295, num_args = 4294967295, </span><br><span class="line">    fe_pos = 4294967295, fe_iter_idx = 4294967295, access_flags = 4294967295, property_guard = 4294967295, extra = 4294967295&#125;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们第一行PHP代码是<code>$a = 10;</code>，这是一条赋值语句,<code>ZEND_ASSIGN_SPEC_CV_CONST_RETVAL_UNUSED_HANDLER</code>是把一个常量赋值给一个变量，<code>EX_CONSTANT(opline-&gt;op2)</code>是获取常量的值，<code>$a</code>为CV变量，分配在zend_execute_data动态变量区，通过<code>_get_zval_ptr_cv_undef_BP_VAR_W</code>取到这个变量的地址，剩下的好理解了，就是把变量值赋值给CV变量。<br><code>value</code>就是我们的变量值，<code>$a</code>对应的底层变量就是它。<br>回忆一下PHP7变量的数据结构，是一个叫<code>zval</code>的结构体，<code>zend_value</code>保存具体的变量值：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line">typedef union _zend_value &#123;</span><br><span class="line">	zend_long         lval;				/* long value */</span><br><span class="line">	double            dval;				/* double value */</span><br><span class="line">	zend_refcounted  *counted;</span><br><span class="line">	zend_string      *str;</span><br><span class="line">	zend_array       *arr;</span><br><span class="line">	zend_object      *obj;</span><br><span class="line">	zend_resource    *res;</span><br><span class="line">	zend_reference   *ref;</span><br><span class="line">	zend_ast_ref     *ast;</span><br><span class="line">	zval             *zv;</span><br><span class="line">	void             *ptr;</span><br><span class="line">	zend_class_entry *ce;</span><br><span class="line">	zend_function    *func;</span><br><span class="line">	struct &#123;</span><br><span class="line">		uint32_t w1;</span><br><span class="line">		uint32_t w2;</span><br><span class="line">	&#125; ww;</span><br><span class="line">&#125; zend_value;</span><br><span class="line"></span><br><span class="line">struct _zval_struct &#123;</span><br><span class="line">	zend_value        value;			/* value */</span><br><span class="line">	union &#123;</span><br><span class="line">		struct &#123;</span><br><span class="line">			ZEND_ENDIAN_LOHI_4(</span><br><span class="line">				zend_uchar    type,			/* 变量类型 */</span><br><span class="line">				zend_uchar    type_flags,</span><br><span class="line">				zend_uchar    const_flags,</span><br><span class="line">				zend_uchar    reserved)	    /* call info for EX(This) */</span><br><span class="line">		&#125; v;</span><br><span class="line">		uint32_t type_info;</span><br><span class="line">	&#125; u1;</span><br><span class="line">	union &#123;</span><br><span class="line">		uint32_t     next;                 /* hash collision chain */</span><br><span class="line">		uint32_t     cache_slot;           /* literal cache slot */</span><br><span class="line">		uint32_t     lineno;               /* line number (for ast nodes) */</span><br><span class="line">		uint32_t     num_args;             /* arguments number for EX(This) */</span><br><span class="line">		uint32_t     fe_pos;               /* foreach position */</span><br><span class="line">		uint32_t     fe_iter_idx;          /* foreach iterator index */</span><br><span class="line">		uint32_t     access_flags;         /* class constant access flags */</span><br><span class="line">		uint32_t     property_guard;       /* single property guard */</span><br><span class="line">		uint32_t     extra;                /* not further specified */</span><br><span class="line">	&#125; u2;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">#define IS_UNDEF                                        0</span><br><span class="line">#define IS_NULL                                         1</span><br><span class="line">#define IS_FALSE                                        2</span><br><span class="line">#define IS_TRUE                                         3</span><br><span class="line">#define IS_LONG                                         4</span><br><span class="line">#define IS_DOUBLE                                       5</span><br><span class="line">#define IS_STRING                                       6</span><br><span class="line">#define IS_ARRAY                                        7</span><br><span class="line">#define IS_OBJECT                                       8</span><br><span class="line">#define IS_RESOURCE                                     9</span><br><span class="line">#define IS_REFERENCE                                    10</span><br><span class="line"></span><br><span class="line">/* constant expressions */</span><br><span class="line">#define IS_CONSTANT                                     11</span><br><span class="line">#define IS_CONSTANT_AST                                 12</span><br></pre></td></tr></table></figure>
+
+<p>我们打印出来的底层变量，<code>lval</code>是10，<code>u1</code>里的<code>type</code>是4，也正好是<code>IS_LONG</code>，别的字段的值大家也可以分析看看。</p>
+<p>参考：</p>
+<ul>
+<li><a href="http://yangxikun.github.io/php/2016/11/04/php-7-func-call.html" target="_blank" rel="noopener">PHP 7 中函数调用的实现</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="reward-container">
+  <div>您的支持将鼓励我继续创作！</div>
+  <button onclick="document.querySelector('.post-reward').classList.toggle('active');">
+    赞赏
+  </button>
+  <div class="post-reward">
+      <div>
+        <img src="/images/wechatpay.jpg" alt="Salamander 微信">
+        <span>微信</span>
+      </div>
+      <div>
+        <img src="/images/alipay.jpg" alt="Salamander 支付宝">
+        <span>支付宝</span>
+      </div>
+
+  </div>
+</div>
+
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+              <a href="/tags/PHP/" rel="tag"># PHP</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2020/07/02/gdb_use/" rel="prev" title="gdb调试简单使用">
+                  <i class="fa fa-chevron-left"></i> gdb调试简单使用
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/08/29/ES6_class/" rel="next" title="ES6中的class">
+                  ES6中的class <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+  
+  
+  
+
+
+
+      
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      
+
+      
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Salamander</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> 强力驱动
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.0/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
